@@ -1,7 +1,9 @@
 # input-latency-bench
 
-A small Windows CLI for measuring timer counters and software-side keypress
-timing. It uses `QueryPerformanceCounter` through `ctypes`, `msvcrt` for
+A small Windows CLI for examining QueryPerformanceCounter behavior and
+software-observed console key timing. Use it to compare labeled runs on the
+same PC, such as timer-read measurements while idle and while a workload is
+running. It uses `QueryPerformanceCounter` through `ctypes`, `msvcrt` for
 keyboard reads, and stores one JSON record per line.
 
 ## What it measures
@@ -10,6 +12,7 @@ keyboard reads, and stores one JSON record per line.
   counter resolution, and the time cost of back-to-back counter reads.
 - `keypress`: time from key-down to key-up (hold time) and the interval between
   successive key-down events.
+- `compare`: summarize a numeric field across labeled runs in a JSONL file.
 - Summary values: min, median, p95, max, and mean over the collected samples.
 
 All numbers come from software running in the Python process. They describe
@@ -43,10 +46,11 @@ pip install -e ".[dev]" --no-cache-dir
 ## Commands
 
 ```text
-input-latency-bench timer [--samples N] [--output FILE] [--json]
-input-latency-bench keypress [--samples N] [--output FILE]
+input-latency-bench timer [--samples N] [--label NAME] [--output FILE] [--json]
+input-latency-bench keypress [--samples N] [--label NAME] [--output FILE]
 input-latency-bench stats FILE [--field FIELD] [--json]
 input-latency-bench report [--path FILE] [--json]
+input-latency-bench compare FILE [--field FIELD]
 input-latency-bench doctor
 ```
 
@@ -54,6 +58,37 @@ Results are appended to
 `%USERPROFILE%\.input-latency-bench\results.jsonl` unless `--output` or
 `INPUT_LATENCY_BENCH_HOME` changes the location. Each record gets a UTC
 `timestamp` when it is written.
+
+### Repeatable comparison session
+
+This example checks whether the time cost of back-to-back timer reads changes
+when a workload is running. Open PowerShell in the same environment, use a new
+output file, and keep the machine and power settings unchanged between runs:
+
+```powershell
+Remove-Item .\timer-ab.jsonl -ErrorAction SilentlyContinue
+input-latency-bench timer --samples 5000 --label idle --output .\timer-ab.jsonl
+# Start the workload you want to check, then run:
+input-latency-bench timer --samples 5000 --label workload --output .\timer-ab.jsonl
+input-latency-bench compare .\timer-ab.jsonl --field overhead_ns.median
+```
+
+For a less noisy comparison, repeat each condition several times, appending
+each run to the same file. Compare the run medians, not just a single run. The
+comparison reports the median, p95, and mean across recorded runs for each
+label, plus the median difference from the first label encountered. A label
+names a run condition; it does not control or verify that condition.
+
+`examples/timer-comparison.jsonl` is a small synthetic input file. Try it with:
+
+```powershell
+input-latency-bench compare examples/timer-comparison.jsonl --field overhead_ns.median
+```
+
+This is a software-side diagnostic of timer reads. It cannot establish that a
+keyboard, USB connection, display, or game has lower input latency. Keypress
+hold values are also affected by when Python reads the key and by polling for
+release, so they are not key-switch response-time measurements.
 
 ### timer
 
@@ -75,6 +110,7 @@ overhead (ns): min=0.000 median=100.000 p95=300.000 max=1900.000 mean=196.200
 `resolution` is computed from positive deltas between consecutive reads.
 `overhead` includes zero deltas, since a zero delta is a real result of two
 reads that landed inside one counter tick.
+Pass `--label idle` to save the run with a label for `compare`.
 
 ### keypress
 
@@ -108,6 +144,7 @@ Key-down is read with `msvcrt.getch()`. Key-up is found by polling
 to each hold measurement. Each JSONL trial's `timestamp` is captured just after
 the key-down read, in UTC. The hold interval uses QPC ticks, not wall-clock
 timestamps.
+Pass `--label baseline` to attach the same label to every trial in the run.
 
 ### stats
 
@@ -130,6 +167,18 @@ input-latency-bench report --path results.jsonl
 
 Text mode prints one block per record. JSON mode prints the parsed records as a
 JSON array.
+
+### compare
+
+```powershell
+input-latency-bench compare results.jsonl --field hold_ms
+input-latency-bench compare results.jsonl --field overhead_ns.median
+```
+
+The field can be a nested dot path. Only finite numeric values in records with
+a non-empty `label` are included. At least two labels must have values. Older
+unlabeled records remain readable by `report` and `stats`, but are not grouped
+by `compare`.
 
 ### doctor
 

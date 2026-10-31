@@ -1,8 +1,10 @@
 """Reporting of stored JSONL benchmark results."""
 
 import json
+import math
 
 from . import storage
+from .stats import summarize
 
 
 def _format_summary(summary):
@@ -56,3 +58,52 @@ def run_report(json_output=False, path=None, printer=print):
                     continue
                 printer(f"  {key}: {value}")
     return records
+
+
+def _field_value(record, field):
+    value = record
+    for part in field.split("."):
+        if not isinstance(value, dict):
+            return None
+        value = value.get(part)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if not math.isfinite(value):
+        return None
+    return float(value)
+
+
+def run_compare(path, field="hold_ms", printer=print):
+    """Summarize a numeric field from each labeled run in a JSONL file."""
+    groups = {}
+    for record in storage.load_records(path):
+        if not isinstance(record, dict):
+            continue
+        label = record.get("label")
+        if not isinstance(label, str) or not label.strip():
+            continue
+        value = _field_value(record, field)
+        if value is not None:
+            groups.setdefault(label, []).append(value)
+
+    if len(groups) < 2:
+        raise ValueError("comparison needs at least two labeled runs with numeric values")
+
+    summaries = {label: summarize(values) for label, values in groups.items()}
+    printer(f"Comparison: {field}")
+    first_label = next(iter(summaries))
+    first_median = summaries[first_label]["median"]
+    for label, result in summaries.items():
+        printer(
+            f"{label}: samples={result['count']} median={result['median']:.3f} "
+            f"p95={result['p95']:.3f} mean={result['mean']:.3f}"
+        )
+        if label != first_label:
+            difference = result["median"] - first_median
+            percent = "n/a" if first_median == 0 else f"{difference / first_median * 100:+.1f}%"
+            printer(
+                f"  {label} vs {first_label}: median difference "
+                f"{difference:+.3f} ({percent})"
+            )
+    printer("Descriptive comparison only. This does not measure end-to-end input latency.")
+    return summaries

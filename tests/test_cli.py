@@ -1,3 +1,7 @@
+import os
+import subprocess
+import sys
+from pathlib import Path
 from unittest.mock import patch
 
 from input_latency_bench import cli
@@ -5,10 +9,11 @@ from input_latency_bench import cli
 
 def test_build_parser_commands():
     parser = cli.build_parser()
-    for command in ("timer", "keypress", "stats", "report", "doctor"):
-        args = parser.parse_args([command]) if command != "stats" else parser.parse_args(
-            [command, "samples.jsonl"]
-        )
+    for command in ("timer", "keypress", "stats", "report", "compare", "doctor"):
+        if command in ("stats", "compare"):
+            args = parser.parse_args([command, "samples.jsonl"])
+        else:
+            args = parser.parse_args([command])
         assert args.command == command
 
 
@@ -25,9 +30,11 @@ def test_cmd_timer_saves_jsonl(tmp_path):
         "max_delta_ticks": 1,
     }
     with patch("input_latency_bench.cli.timer.measure_timer", return_value=fake):
-        args = cli.build_parser().parse_args(["timer", "--output", str(output)])
+        args = cli.build_parser().parse_args(
+            ["timer", "--label", "idle", "--output", str(output)]
+        )
         assert cli.cmd_timer(args) == 0
-    assert output.exists()
+    assert '"label":"idle"' in output.read_text(encoding="utf-8")
 
 
 def test_cmd_keypress_saves_events(tmp_path):
@@ -40,11 +47,48 @@ def test_cmd_keypress_saves_events(tmp_path):
         "events": [{"trial": 1, "hold_ms": 10.0, "interval_ms": None}],
     }
     with patch("input_latency_bench.cli.keypress.measure_keypress", return_value=fake):
-        args = cli.build_parser().parse_args(["keypress", "--output", str(output)])
+        args = cli.build_parser().parse_args(
+            ["keypress", "--label", "baseline", "--output", str(output)]
+        )
         assert cli.cmd_keypress(args) == 0
     lines = output.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 1
     assert '"hold_ms":10.0' in lines[0]
+    assert '"label":"baseline"' in lines[0]
+
+
+def test_compare_cli_end_to_end(tmp_path):
+    path = tmp_path / "runs.jsonl"
+    path.write_text(
+        '{"label":"baseline","hold_ms":10}\n'
+        '{"label":"baseline","hold_ms":12}\n'
+        '{"label":"changed","hold_ms":20}\n',
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    source = str(Path(__file__).resolve().parents[1] / "src")
+    env["PYTHONPATH"] = source + os.pathsep + env.get("PYTHONPATH", "")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "input_latency_bench",
+            "compare",
+            str(path),
+            "--field",
+            "hold_ms",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "baseline" in result.stdout
+    assert "changed" in result.stdout
+    assert "median=20.000" in result.stdout
 
 
 def test_cmd_stats(tmp_path):

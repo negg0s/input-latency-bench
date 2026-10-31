@@ -1,0 +1,6 @@
+{"command":"timer","label":"idle","overhead_ns":{"median":100.0}}
+{"command":"timer","label":"idle","overhead_ns":{"median":110.0}}
+{"command":"timer","label":"idle","overhead_ns":{"median":105.0}}
+{"command":"timer","label":"workload","overhead_ns":{"median":200.0}}
+{"command":"timer","label":"workload","overhead_ns":{"median":220.0}}
+{"command":"timer","label":"workload","overhead_ns":{"median":210.0}}

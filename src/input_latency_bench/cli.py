@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import sys
 
 from . import doctor, keypress, report, stats, storage, timer
 
@@ -24,6 +25,8 @@ def _print_timer(result):
 def cmd_timer(args):
     result = timer.measure_timer(samples=args.samples)
     out = {"command": "timer", **result}
+    if args.label:
+        out["label"] = args.label
     storage.append_result(out, path=args.output)
     if args.json:
         print(json.dumps(out, indent=2))
@@ -40,6 +43,7 @@ def cmd_keypress(args):
             {
                 "command": "keypress",
                 "session": session,
+                **({"label": args.label} if args.label else {}),
                 "frequency": result["frequency"],
                 **event,
             },
@@ -69,6 +73,15 @@ def cmd_report(args):
     return 0
 
 
+def cmd_compare(args):
+    try:
+        report.run_compare(args.file, field=args.field)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    return 0
+
+
 def cmd_doctor(args):
     doctor.run_doctor()
     return 0
@@ -83,12 +96,14 @@ def build_parser():
 
     p_timer = sub.add_parser("timer", help="Measure QPC frequency, resolution, and overhead")
     p_timer.add_argument("--samples", type=int, default=1000)
+    p_timer.add_argument("--label", type=str, help="Name this run for later comparison")
     p_timer.add_argument("--output", type=str, default=None, help="JSONL output path")
     p_timer.add_argument("--json", action="store_true", help="Print the result as JSON")
     p_timer.set_defaults(func=cmd_timer)
 
     p_key = sub.add_parser("keypress", help="Measure key hold and inter-key timing")
     p_key.add_argument("--samples", type=int, default=5)
+    p_key.add_argument("--label", type=str, help="Name this run for later comparison")
     p_key.add_argument("--output", type=str, default=None, help="JSONL output path")
     p_key.set_defaults(func=cmd_keypress)
 
@@ -107,6 +122,16 @@ def build_parser():
     p_rep.add_argument("--json", action="store_true")
     p_rep.add_argument("--path", type=str, default=None, help="JSONL file to read")
     p_rep.set_defaults(func=cmd_report)
+
+    p_compare = sub.add_parser("compare", help="Compare labeled numeric results")
+    p_compare.add_argument("file", help="JSONL file containing labeled runs")
+    p_compare.add_argument(
+        "--field",
+        type=str,
+        default="hold_ms",
+        help="Numeric field to compare, supports dot paths (default: hold_ms)",
+    )
+    p_compare.set_defaults(func=cmd_compare)
 
     p_doc = sub.add_parser("doctor", help="Environment diagnostics")
     p_doc.set_defaults(func=cmd_doctor)
