@@ -16,6 +16,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install
-        run: pip install -e ".[dev]"
+        run: pip install --no-cache-dir -e ".[dev]"
+      - name: Check text
+        run: python tools/check_text.py
       - name: Test
         run: pytest
