@@ -89,11 +89,16 @@ def collect_values(path, field=None):
     return values
 
 
-def run_stats(path, field=None, json_output=False, printer=print):
+def run_stats(path, field=None, json_output=False, csv_output=False, printer=print):
     values = collect_values(path, field=field)
     result = summarize(values)
     if json_output:
         printer(json.dumps(result, indent=2))
+    elif csv_output:
+        headers = ["count", "min", "median", "p95", "p99", "max", "mean", "stddev"]
+        printer(",".join(headers))
+        row = [f"{result[h]:.3f}" if isinstance(result[h], float) else str(result[h] or "") for h in headers]
+        printer(",".join(row))
     else:
         printer(f"file: {Path(path)}")
         printer(f"samples: {result['count']}")

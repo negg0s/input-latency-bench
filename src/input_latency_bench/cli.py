@@ -64,7 +64,12 @@ def cmd_keypress(args):
 
 
 def cmd_stats(args):
-    stats.run_stats(args.file, field=args.field, json_output=args.json)
+    stats.run_stats(
+        args.file,
+        field=args.field,
+        json_output=args.json,
+        csv_output=getattr(args, "csv", False),
+    )
     return 0
 
 
@@ -125,6 +130,7 @@ def build_parser():
         help="Record field to read, supports dot paths (default: value, hold_ms, ...)",
     )
     p_stats.add_argument("--json", action="store_true")
+    p_stats.add_argument("--csv", action="store_true", help="Output summary as CSV")
     p_stats.set_defaults(func=cmd_stats)
 
     p_rep = sub.add_parser("report", help="Show stored JSONL results")

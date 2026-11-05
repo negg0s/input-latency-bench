@@ -57,3 +57,14 @@ def test_run_stats_text(tmp_path):
     result = stats.run_stats(path, printer=out.append)
     assert result["count"] == 4
     assert any("median: 2.500" in line for line in out)
+
+
+def test_run_stats_csv(tmp_path):
+    path = tmp_path / "samples.jsonl"
+    path.write_text("1\n2\n3\n4\n", encoding="utf-8")
+    out = []
+    result = stats.run_stats(path, csv_output=True, printer=out.append)
+    assert result["count"] == 4
+    assert len(out) == 2
+    assert "count,min,median,p95,p99,max,mean,stddev" in out[0]
+    assert "4,1.000,2.500" in out[1]
