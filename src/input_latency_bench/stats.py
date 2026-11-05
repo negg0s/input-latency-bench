@@ -34,16 +34,22 @@ def summarize(values):
             "min": None,
             "median": None,
             "p95": None,
+            "p99": None,
             "max": None,
             "mean": None,
+            "stddev": None,
         }
+    mean = sum(values) / len(values)
+    variance = sum((x - mean) ** 2 for x in values) / len(values)
     return {
         "count": len(values),
         "min": min(values),
         "median": percentile(values, 50),
         "p95": percentile(values, 95),
+        "p99": percentile(values, 99),
         "max": max(values),
-        "mean": sum(values) / len(values),
+        "mean": mean,
+        "stddev": math.sqrt(variance),
     }
 
 
@@ -91,7 +97,7 @@ def run_stats(path, field=None, json_output=False, printer=print):
     else:
         printer(f"file: {Path(path)}")
         printer(f"samples: {result['count']}")
-        for key in ("min", "median", "p95", "max", "mean"):
+        for key in ("min", "median", "p95", "p99", "max", "mean", "stddev"):
             value = result[key]
             printer(f"{key}: {value:.3f}" if value is not None else f"{key}: n/a")
     return result

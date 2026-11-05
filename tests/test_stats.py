@@ -15,14 +15,18 @@ def test_summarize_known_values():
     assert result["min"] == 1
     assert result["median"] == 3
     assert result["p95"] == 4.8
+    assert result["p99"] == 4.96
     assert result["max"] == 5
     assert result["mean"] == 3
+    assert round(result["stddev"], 4) == 1.4142
 
 
 def test_summarize_empty():
     result = stats.summarize([])
     assert result["count"] == 0
     assert result["median"] is None
+    assert result["p99"] is None
+    assert result["stddev"] is None
 
 
 def test_collect_values_from_jsonl(tmp_path):
