@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -109,3 +110,15 @@ def test_cmd_doctor():
     with patch("input_latency_bench.doctor.run_doctor", return_value=[]):
         args = cli.build_parser().parse_args(["doctor"])
         assert cli.cmd_doctor(args) == 0
+
+
+def test_cmd_doctor_json(capsys):
+    parser = cli.build_parser()
+    args = parser.parse_args(["doctor", "--json"])
+    ret = cli.cmd_doctor(args)
+    assert ret in (0, 1)
+    payload = json.loads(capsys.readouterr().out)
+    assert "checks" in payload
+    assert "passed" in payload
+    assert "total" in payload
+    assert isinstance(payload["checks"], list)

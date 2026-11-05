@@ -83,8 +83,17 @@ def cmd_compare(args):
 
 
 def cmd_doctor(args):
-    doctor.run_doctor()
-    return 0
+    if getattr(args, "json", False):
+        checks = doctor.run_doctor(printer=lambda _: None)
+        payload = {
+            "checks": [{"name": name, "ok": ok, "detail": detail} for name, ok, detail in checks],
+            "passed": sum(1 for _, ok, _ in checks if ok),
+            "total": len(checks),
+        }
+        print(json.dumps(payload, indent=2))
+        return 0 if all(ok for _, ok, _ in checks) else 1
+    checks = doctor.run_doctor()
+    return 0 if all(ok for _, ok, _ in checks) else 1
 
 
 def build_parser():
@@ -134,6 +143,7 @@ def build_parser():
     p_compare.set_defaults(func=cmd_compare)
 
     p_doc = sub.add_parser("doctor", help="Environment diagnostics")
+    p_doc.add_argument("--json", action="store_true", help="Output diagnostics as JSON")
     p_doc.set_defaults(func=cmd_doctor)
 
     return parser
