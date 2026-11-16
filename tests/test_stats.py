@@ -109,3 +109,66 @@ def test_summarize_includes_iqr():
     double_res = stats.summarize([10.0, 20.0])
     assert double_res["iqr"] == 5.0
 
+
+def test_jitter_edge_cases():
+    # N=0
+    assert stats.jitter([]) == 0.0
+    assert stats.calculate_jitter([]) == 0.0
+
+    # N=1
+    assert stats.jitter([15.0]) == 0.0
+
+    # Identical values
+    assert stats.jitter([20.0, 20.0, 20.0]) == 0.0
+
+    # Consecutive differences: |10-12|=2, |15-10|=5 -> (2+5)/2 = 3.5
+    assert stats.jitter([12.0, 10.0, 15.0]) == 3.5
+
+
+def test_z_scores_edge_cases():
+    # N=0
+    assert stats.z_scores([]) == []
+    assert stats.zscore([]) == []
+
+    # N=1 (stddev undefined/zero -> 0.0, no division by zero)
+    assert stats.z_scores([50.0]) == [0.0]
+
+    # Identical values (stddev == 0.0 -> no division by zero)
+    assert stats.z_scores([42.0, 42.0, 42.0]) == [0.0, 0.0, 0.0]
+
+    # Valid distribution
+    scores = stats.z_scores([10.0, 20.0, 30.0])
+    assert len(scores) == 3
+    assert abs(scores[1]) < 1e-9  # middle is mean -> z=0
+    assert round(scores[0], 4) == -1.2247
+    assert round(scores[2], 4) == 1.2247
+
+
+def test_summarize_percentiles_and_edge_cases():
+    # N=0
+    empty_res = stats.summarize([])
+    assert empty_res["p99"] is None
+    assert empty_res["p99_9"] is None
+    assert empty_res["p99.9"] is None
+    assert empty_res["stddev"] is None
+    assert empty_res["jitter"] is None
+
+    # N=1
+    single_res = stats.summarize([100.0])
+    assert single_res["p99"] == 100.0
+    assert single_res["p99_9"] == 100.0
+    assert single_res["p99.9"] == 100.0
+    assert single_res["stddev"] == 0.0
+    assert single_res["jitter"] == 0.0
+
+    # All identical values
+    identical_res = stats.summarize([50.0, 50.0, 50.0, 50.0])
+    assert identical_res["min"] == 50.0
+    assert identical_res["max"] == 50.0
+    assert identical_res["mean"] == 50.0
+    assert identical_res["stddev"] == 0.0
+    assert identical_res["jitter"] == 0.0
+    assert identical_res["p99"] == 50.0
+    assert identical_res["p99_9"] == 50.0
+
+

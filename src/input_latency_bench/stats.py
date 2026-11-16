@@ -65,6 +65,46 @@ def detect_outliers(values, factor=1.5):
     return find_outliers(values, factor=factor)
 
 
+def jitter(values):
+    """Compute average consecutive latency difference (jitter).
+
+    Returns 0.0 when values contains fewer than 2 valid numeric samples.
+    """
+    clean = [float(v) for v in values if _is_number(v)]
+    if len(clean) < 2:
+        return 0.0
+    diffs = [abs(clean[i] - clean[i - 1]) for i in range(1, len(clean))]
+    return sum(diffs) / len(diffs)
+
+
+def calculate_jitter(values):
+    return jitter(values)
+
+
+def z_scores(values):
+    """Compute standard scores (z-scores) for a sample series.
+
+    Returns an empty list for empty input, and 0.0 for all samples when
+    sample size is 1 or when standard deviation is zero, safely preventing
+    division by zero errors.
+    """
+    clean = [float(v) for v in values if _is_number(v)]
+    if not clean:
+        return []
+    if len(clean) == 1:
+        return [0.0]
+    mean = sum(clean) / len(clean)
+    variance = sum((x - mean) ** 2 for x in clean) / len(clean)
+    stddev = math.sqrt(variance)
+    if stddev == 0.0:
+        return [0.0] * len(clean)
+    return [(x - mean) / stddev for x in clean]
+
+
+def zscore(values):
+    return z_scores(values)
+
+
 def summarize(values):
     values = [float(v) for v in values if _is_number(v)]
     if not values:
@@ -74,24 +114,32 @@ def summarize(values):
             "median": None,
             "p95": None,
             "p99": None,
+            "p99_9": None,
+            "p99.9": None,
             "max": None,
             "mean": None,
             "stddev": None,
             "iqr": None,
+            "jitter": None,
         }
     mean = sum(values) / len(values)
     variance = sum((x - mean) ** 2 for x in values) / len(values)
+    p99_9 = percentile(values, 99.9)
     return {
         "count": len(values),
         "min": min(values),
         "median": percentile(values, 50),
         "p95": percentile(values, 95),
         "p99": percentile(values, 99),
+        "p99_9": p99_9,
+        "p99.9": p99_9,
         "max": max(values),
         "mean": mean,
         "stddev": math.sqrt(variance),
         "iqr": iqr(values),
+        "jitter": jitter(values),
     }
+
 
 
 def _is_number(value):
