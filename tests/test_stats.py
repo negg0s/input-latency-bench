@@ -68,3 +68,11 @@ def test_run_stats_csv(tmp_path):
     assert len(out) == 2
     assert "count,min,median,p95,p99,max,mean,stddev" in out[0]
     assert "4,1.000,2.500" in out[1]
+
+
+def test_summarize_filters_nan_and_inf():
+    result = stats.summarize([1, float("nan"), 2, float("inf"), 3])
+    assert result["count"] == 3
+    assert result["min"] == 1.0
+    assert result["median"] == 2.0
+    assert result["max"] == 3.0

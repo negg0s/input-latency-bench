@@ -27,7 +27,7 @@ def percentile(values, p):
 
 
 def summarize(values):
-    values = [float(v) for v in values]
+    values = [float(v) for v in values if _is_number(v)]
     if not values:
         return {
             "count": 0,
@@ -54,7 +54,7 @@ def summarize(values):
 
 
 def _is_number(value):
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 
 def _lookup(record, field):
