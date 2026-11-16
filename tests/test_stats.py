@@ -76,3 +76,36 @@ def test_summarize_filters_nan_and_inf():
     assert result["min"] == 1.0
     assert result["median"] == 2.0
     assert result["max"] == 3.0
+
+
+def test_iqr_small_samples():
+    assert stats.iqr([]) == 0.0
+    assert stats.iqr([42.0]) == 0.0
+    assert stats.iqr([10.0, 20.0]) == 5.0
+    assert stats.interquartile_range([1, 2, 3, 4, 5]) == 2.0
+
+
+def test_outliers_small_samples_returns_empty():
+    assert stats.find_outliers([]) == []
+    assert stats.find_outliers([5.0]) == []
+    assert stats.find_outliers([5.0, 1000.0]) == []
+    assert stats.detect_outliers([5.0, 1000.0]) == []
+    assert stats.find_outliers([1.0, 2.0, 3.0]) == []
+
+
+def test_outliers_detection_with_sufficient_samples():
+    data = [10.0, 11.0, 12.0, 13.0, 14.0, 100.0]
+    outliers = stats.find_outliers(data)
+    assert outliers == [100.0]
+
+
+def test_summarize_includes_iqr():
+    empty_res = stats.summarize([])
+    assert empty_res["iqr"] is None
+
+    single_res = stats.summarize([7.0])
+    assert single_res["iqr"] == 0.0
+
+    double_res = stats.summarize([10.0, 20.0])
+    assert double_res["iqr"] == 5.0
+

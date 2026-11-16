@@ -26,6 +26,45 @@ def percentile(values, p):
     return ordered[lower] * (1 - fraction) + ordered[upper] * fraction
 
 
+def iqr(values):
+    """Compute the interquartile range (IQR = Q75 - Q25).
+
+    Returns 0.0 when values is empty or contains fewer than 2 valid samples.
+    """
+    clean = [float(v) for v in values if _is_number(v)]
+    if len(clean) < 2:
+        return 0.0
+    return percentile(clean, 75) - percentile(clean, 25)
+
+
+def interquartile_range(values):
+    return iqr(values)
+
+
+def find_outliers(values, factor=1.5):
+    """Find outlier values using Tukey fences (Q25 - factor*IQR, Q75 + factor*IQR).
+
+    Returns an empty list when fewer than 4 valid samples are provided,
+    because small sample sizes (such as 1 or 2 samples) cannot reliably
+    identify outliers.
+    """
+    clean = [float(v) for v in values if _is_number(v)]
+    if len(clean) < 4:
+        return []
+    spread = iqr(clean)
+    if spread == 0.0:
+        return []
+    q25 = percentile(clean, 25)
+    q75 = percentile(clean, 75)
+    lower = q25 - factor * spread
+    upper = q75 + factor * spread
+    return [v for v in clean if v < lower or v > upper]
+
+
+def detect_outliers(values, factor=1.5):
+    return find_outliers(values, factor=factor)
+
+
 def summarize(values):
     values = [float(v) for v in values if _is_number(v)]
     if not values:
@@ -38,6 +77,7 @@ def summarize(values):
             "max": None,
             "mean": None,
             "stddev": None,
+            "iqr": None,
         }
     mean = sum(values) / len(values)
     variance = sum((x - mean) ** 2 for x in values) / len(values)
@@ -50,6 +90,7 @@ def summarize(values):
         "max": max(values),
         "mean": mean,
         "stddev": math.sqrt(variance),
+        "iqr": iqr(values),
     }
 
 
